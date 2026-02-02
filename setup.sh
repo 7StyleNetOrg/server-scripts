@@ -13,7 +13,7 @@ set -e
 # ═══════════════════════════════════════════════════════════════
 REPO_URL="https://raw.githubusercontent.com/7StyleNetOrg/server-scripts/main"
 INSTALL_DIR="/opt/server-scripts"
-VERSION="1.0.0"
+VERSION="1.0.1"
 
 # Colors
 RED='\033[0;31m'
@@ -27,6 +27,11 @@ NC='\033[0m'
 # ═══════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════
+
+# Read from /dev/tty to support curl | bash
+ask() {
+    read -p "$1" "$2" < /dev/tty
+}
 
 print_banner() {
     clear
@@ -88,7 +93,7 @@ install_docker_cleanup() {
     echo ""
 
     # Get server name
-    read -p "Server name (e.g., PROD-01) [$(hostname)]: " SERVER_NAME
+    ask "Server name (e.g., PROD-01) [$(hostname)]: " SERVER_NAME
     SERVER_NAME=${SERVER_NAME:-$(hostname)}
 
     # Get Slack webhook
@@ -98,15 +103,15 @@ install_docker_cleanup() {
     echo "  2. Create/select an app → Incoming Webhooks → Add"
     echo "  3. Copy the webhook URL"
     echo ""
-    read -p "Slack Webhook URL (Enter to skip): " SLACK_WEBHOOK
+    ask "Slack Webhook URL (Enter to skip): " SLACK_WEBHOOK
 
     # Get disk threshold
     echo ""
-    read -p "Disk warning threshold % [80]: " DISK_THRESHOLD
+    ask "Disk warning threshold % [80]: " DISK_THRESHOLD
     DISK_THRESHOLD=${DISK_THRESHOLD:-80}
 
     # Enable prune
-    read -p "Enable automatic docker prune? [Y/n]: " ENABLE_PRUNE
+    ask "Enable automatic docker prune? [Y/n]: " ENABLE_PRUNE
     ENABLE_PRUNE=${ENABLE_PRUNE:-y}
     [[ "$ENABLE_PRUNE" =~ ^[Yy]$ ]] && ENABLE_PRUNE="true" || ENABLE_PRUNE="false"
 
@@ -137,7 +142,7 @@ EOF
 
     # Ask to run now
     echo ""
-    read -p "Run cleanup now? [Y/n]: " RUN_NOW
+    ask "Run cleanup now? [Y/n]: " RUN_NOW
     RUN_NOW=${RUN_NOW:-y}
     if [[ "$RUN_NOW" =~ ^[Yy]$ ]]; then
         echo ""
@@ -162,7 +167,7 @@ install_server_hardening() {
 
     log_warning "This will install: UFW, fail2ban, auto-updates, kernel hardening"
     echo ""
-    read -p "Continue? [Y/n]: " CONFIRM
+    ask "Continue? [Y/n]: " CONFIRM
     CONFIRM=${CONFIRM:-y}
 
     if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
@@ -202,11 +207,11 @@ install_ssl_manager() {
 
     # Ask for domain
     echo ""
-    read -p "Setup a domain now? [y/N]: " SETUP_DOMAIN
+    ask "Setup a domain now? [y/N]: " SETUP_DOMAIN
     SETUP_DOMAIN=${SETUP_DOMAIN:-n}
 
     if [[ "$SETUP_DOMAIN" =~ ^[Yy]$ ]]; then
-        read -p "Enter domain (e.g., example.com): " DOMAIN
+        ask "Enter domain (e.g., example.com): " DOMAIN
         if [[ -n "$DOMAIN" ]]; then
             ${INSTALL_DIR}/ssl-domain-manager.sh "$DOMAIN"
         fi
@@ -244,7 +249,7 @@ self_update() {
 
     if [[ "$REMOTE_VERSION" != "$VERSION" ]]; then
         log_info "New version available: $REMOTE_VERSION (current: $VERSION)"
-        read -p "Update now? [Y/n]: " UPDATE
+        ask "Update now? [Y/n]: " UPDATE
         UPDATE=${UPDATE:-y}
 
         if [[ "$UPDATE" =~ ^[Yy]$ ]]; then
@@ -307,7 +312,6 @@ main() {
 
     # Save setup.sh itself
     if [[ ! -f "${INSTALL_DIR}/setup.sh" ]]; then
-        cp "$0" "${INSTALL_DIR}/setup.sh" 2>/dev/null || \
         curl -sSL "${REPO_URL}/setup.sh" -o "${INSTALL_DIR}/setup.sh"
         chmod +x "${INSTALL_DIR}/setup.sh"
         ln -sf "${INSTALL_DIR}/setup.sh" /usr/local/bin/server-scripts
@@ -316,7 +320,7 @@ main() {
 
     while true; do
         show_menu
-        read -p "Enter choice [1-4, u, q]: " choice
+        ask "Enter choice [1-4, u, q]: " choice
 
         case $choice in
             1) install_docker_cleanup ;;
@@ -336,7 +340,7 @@ main() {
         esac
 
         echo ""
-        read -p "Press Enter to continue..."
+        ask "Press Enter to continue..." _
         print_banner
     done
 }
