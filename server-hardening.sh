@@ -2,7 +2,7 @@
 
 #####################################################
 #  SERVER HARDENING SCRIPT - Ubuntu/Debian
-#  Version: 1.0
+#  Version: 1.1
 #  Features: UFW, fail2ban, auto-updates, sysctl, docker
 #####################################################
 
@@ -14,6 +14,11 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Read from /dev/tty to support curl | bash
+ask() {
+    read -p "$1" "$2" < /dev/tty
+}
 
 # Log functions
 log_info() {
@@ -35,7 +40,7 @@ log_error() {
 print_banner() {
     echo -e "${GREEN}"
     echo "╔═══════════════════════════════════════════════════╗"
-    echo "║       SERVER HARDENING SCRIPT v1.0                ║"
+    echo "║       SERVER HARDENING SCRIPT v1.1                ║"
     echo "║       Basic Protection for Ubuntu/Debian          ║"
     echo "╚═══════════════════════════════════════════════════╝"
     echo -e "${NC}"
@@ -83,21 +88,21 @@ setup_ufw() {
 
     # Allow SSH port (default 22)
     echo ""
-    read -p "SSH port (default 22): " SSH_PORT
+    ask "SSH port (default 22): " SSH_PORT
     SSH_PORT=${SSH_PORT:-22}
     ufw allow ${SSH_PORT}/tcp comment 'SSH'
     log_success "SSH port ${SSH_PORT} allowed"
 
     # HTTP/HTTPS question
     echo ""
-    read -p "Do you want to open HTTP (80) port? [Y/n]: " OPEN_HTTP
+    ask "Do you want to open HTTP (80) port? [Y/n]: " OPEN_HTTP
     OPEN_HTTP=${OPEN_HTTP:-y}
     if [[ "$OPEN_HTTP" =~ ^[Yy]$ ]]; then
         ufw allow 80/tcp comment 'HTTP'
         log_success "HTTP port 80 allowed"
     fi
 
-    read -p "Do you want to open HTTPS (443) port? [Y/n]: " OPEN_HTTPS
+    ask "Do you want to open HTTPS (443) port? [Y/n]: " OPEN_HTTPS
     OPEN_HTTPS=${OPEN_HTTPS:-y}
     if [[ "$OPEN_HTTPS" =~ ^[Yy]$ ]]; then
         ufw allow 443/tcp comment 'HTTPS'
@@ -106,7 +111,7 @@ setup_ufw() {
 
     # Additional ports
     echo ""
-    read -p "Any other ports to open? (comma-separated, press Enter to skip): " EXTRA_PORTS
+    ask "Any other ports to open? (comma-separated, press Enter to skip): " EXTRA_PORTS
     if [[ -n "$EXTRA_PORTS" ]]; then
         IFS=',' read -ra PORTS <<< "$EXTRA_PORTS"
         for port in "${PORTS[@]}"; do
@@ -292,7 +297,7 @@ setup_docker() {
         return
     fi
 
-    read -p "Do you want to install Docker? [Y/n]: " INSTALL_DOCKER
+    ask "Do you want to install Docker? [Y/n]: " INSTALL_DOCKER
     INSTALL_DOCKER=${INSTALL_DOCKER:-y}
 
     if [[ "$INSTALL_DOCKER" =~ ^[Yy]$ ]]; then
@@ -370,7 +375,7 @@ main() {
     echo "  - Docker (optional)"
     echo ""
 
-    read -p "Do you want to continue? [Y/n]: " CONFIRM
+    ask "Do you want to continue? [Y/n]: " CONFIRM
     CONFIRM=${CONFIRM:-y}
     if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
         log_info "Cancelled."

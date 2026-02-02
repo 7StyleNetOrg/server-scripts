@@ -22,6 +22,11 @@ NC='\033[0m'
 # HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════
 
+# Read from /dev/tty to support curl | bash
+ask() {
+    read -p "$1" "$2" < /dev/tty
+}
+
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
 log_warning() { echo -e "${YELLOW}[WARN]${NC} $1"; }
@@ -81,7 +86,7 @@ check_dependencies() {
 # Get email from user
 get_email() {
     echo ""
-    read -p "Enter email for Let's Encrypt notifications: " SSL_EMAIL
+    ask "Enter email for Let's Encrypt notifications: " SSL_EMAIL
     if [[ -z "$SSL_EMAIL" ]]; then
         log_error "Email is required for Let's Encrypt!"
         exit 1
@@ -105,7 +110,7 @@ create_nginx_conf() {
     # Check if conf already exists
     if [ -f "$conf_file" ]; then
         echo ""
-        read -p "Config for ${domain} already exists. Override? [y/N]: " OVERRIDE
+        ask "Config for ${domain} already exists. Override? [y/N]: " OVERRIDE
         if [[ ! "$OVERRIDE" =~ ^[Yy]$ ]]; then
             log_info "Keeping existing configuration"
             return 0
