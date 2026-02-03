@@ -1,12 +1,15 @@
 #!/bin/bash
 
 #####################################################
-#  SERVER HARDENING SCRIPT - Ubuntu/Debian
+#  SERVER SECURITY SCRIPT - Ubuntu/Debian
 #  Version: 1.1
 #  Features: UFW, fail2ban, auto-updates, sysctl, docker
 #####################################################
 
 set -e
+
+# Prevent interactive prompts during apt operations (e.g., grub-pc config)
+export DEBIAN_FRONTEND=noninteractive
 
 # Colors
 RED='\033[0;31m'
@@ -40,7 +43,7 @@ log_error() {
 print_banner() {
     echo -e "${GREEN}"
     echo "╔═══════════════════════════════════════════════════╗"
-    echo "║       SERVER HARDENING SCRIPT v1.1                ║"
+    echo "║       SERVER SECURITY SCRIPT v1.1                 ║"
     echo "║       Basic Protection for Ubuntu/Debian          ║"
     echo "╚═══════════════════════════════════════════════════╝"
     echo -e "${NC}"
@@ -70,7 +73,7 @@ check_os() {
 update_system() {
     log_info "Updating system..."
     apt update -y
-    apt upgrade -y
+    apt upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
     log_success "System updated"
 }
 

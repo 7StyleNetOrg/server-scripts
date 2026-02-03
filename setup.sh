@@ -158,10 +158,10 @@ EOF
     echo ""
 }
 
-install_server_hardening() {
+install_server_security() {
     echo ""
     echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${BOLD}  Server Hardening Script${NC}"
+    echo -e "${BOLD}  Server Security Script${NC}"
     echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
@@ -176,16 +176,16 @@ install_server_hardening() {
     fi
 
     # Download and run
-    log_info "Downloading server-hardening.sh..."
-    curl -sSL "${REPO_URL}/server-hardening.sh" -o "${INSTALL_DIR}/server-hardening.sh"
-    chmod +x "${INSTALL_DIR}/server-hardening.sh"
-    log_success "Downloaded: ${INSTALL_DIR}/server-hardening.sh"
+    log_info "Downloading server-security.sh..."
+    curl -sSL "${REPO_URL}/server-security.sh" -o "${INSTALL_DIR}/server-security.sh"
+    chmod +x "${INSTALL_DIR}/server-security.sh"
+    log_success "Downloaded: ${INSTALL_DIR}/server-security.sh"
 
     echo ""
-    log_info "Running server hardening..."
-    ${INSTALL_DIR}/server-hardening.sh
+    log_info "Running server security..."
+    ${INSTALL_DIR}/server-security.sh
 
-    log_success "Server Hardening completed!"
+    log_success "Server Security completed!"
 }
 
 install_ssl_manager() {
@@ -228,7 +228,7 @@ install_ssl_manager() {
 
 install_all() {
     install_docker_cleanup
-    install_server_hardening
+    install_server_security
     install_ssl_manager
 }
 
@@ -268,7 +268,7 @@ update_scripts() {
     echo ""
     log_info "Updating all installed scripts..."
 
-    local scripts=("docker-cleanup.sh" "server-hardening.sh" "ssl-domain-manager.sh" "setup.sh")
+    local scripts=("docker-cleanup.sh" "server-security.sh" "ssl-domain-manager.sh" "setup.sh")
 
     for script in "${scripts[@]}"; do
         if [[ -f "${INSTALL_DIR}/${script}" ]]; then
@@ -292,7 +292,7 @@ show_menu() {
     echo -e "${BOLD}Select an option:${NC}"
     echo ""
     echo -e "  ${CYAN}1)${NC} Docker Cleanup      - Auto cleanup + Slack reports"
-    echo -e "  ${CYAN}2)${NC} Server Hardening    - UFW, fail2ban, auto-updates"
+    echo -e "  ${CYAN}2)${NC} Server Security     - UFW, fail2ban, auto-updates"
     echo -e "  ${CYAN}3)${NC} SSL Domain Manager  - Nginx + Let's Encrypt"
     echo ""
     echo -e "  ${CYAN}4)${NC} Install All"
@@ -324,7 +324,7 @@ main() {
 
         case $choice in
             1) install_docker_cleanup ;;
-            2) install_server_hardening ;;
+            2) install_server_security ;;
             3) install_ssl_manager ;;
             4) install_all ;;
             u|U) update_scripts ;;

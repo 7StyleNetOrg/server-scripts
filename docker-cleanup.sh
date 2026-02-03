@@ -197,7 +197,7 @@ setup_cron() {
     fi
 }
 
-# Check security packages from server-hardening.sh
+# Check security packages from server-security.sh
 check_security() {
     SECURITY_WARNINGS=""
     SECURITY_STATUS=""
