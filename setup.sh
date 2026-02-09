@@ -11,9 +11,15 @@ set -e
 # ═══════════════════════════════════════════════════════════════
 # CONFIG
 # ═══════════════════════════════════════════════════════════════
-REPO_URL="https://raw.githubusercontent.com/7StyleNetOrg/server-scripts/main"
+REPO_OWNER="7StyleNetOrg"
+REPO_NAME="server-scripts"
+REPO_BRANCH="main"
+REPO_ARCHIVE="https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${REPO_BRANCH}.tar.gz"
 INSTALL_DIR="/opt/server-scripts"
-VERSION="1.0.1"
+VERSION="1.0.2"
+
+# Temp dir for fetched repo (cleaned up on exit)
+FETCH_DIR=""
 
 # Colors
 RED='\033[0;31m'
@@ -60,9 +66,46 @@ log_error() { echo -e "${RED}[✗]${NC} $1"; }
 check_root() {
     if [[ $EUID -ne 0 ]]; then
         log_error "This script must be run as root!"
-        echo "Usage: curl -sSL ${REPO_URL}/setup.sh | sudo bash"
+        echo "Usage: curl -sSL https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}/setup.sh | sudo bash"
         exit 1
     fi
+}
+
+# Fetch repo as tarball (always fresh, no CDN cache)
+fetch_latest() {
+    if [[ -n "$FETCH_DIR" && -d "$FETCH_DIR" ]]; then
+        return 0
+    fi
+
+    FETCH_DIR=$(mktemp -d)
+    log_info "Fetching latest scripts from GitHub..."
+
+    if curl -sSL "$REPO_ARCHIVE" | tar xz -C "$FETCH_DIR" 2>/dev/null; then
+        log_success "Latest scripts fetched"
+    else
+        log_error "Failed to fetch scripts from GitHub!"
+        rm -rf "$FETCH_DIR"
+        FETCH_DIR=""
+        exit 1
+    fi
+}
+
+# Copy a script from fetched repo to install dir
+install_script() {
+    local script_name=$1
+    local src="${FETCH_DIR}/${REPO_NAME}-${REPO_BRANCH}/${script_name}"
+
+    if [[ ! -f "$src" ]]; then
+        log_error "Script not found: ${script_name}"
+        return 1
+    fi
+
+    cp "$src" "${INSTALL_DIR}/${script_name}"
+    chmod +x "${INSTALL_DIR}/${script_name}"
+}
+
+cleanup_fetch() {
+    [[ -n "$FETCH_DIR" && -d "$FETCH_DIR" ]] && rm -rf "$FETCH_DIR"
 }
 
 check_dependencies() {
@@ -132,8 +175,8 @@ EOF
 
     # Download script
     log_info "Downloading docker-cleanup.sh..."
-    curl -sSL -H 'Cache-Control: no-cache, no-store' "${REPO_URL}/docker-cleanup.sh" -o "${INSTALL_DIR}/docker-cleanup.sh"
-    chmod +x "${INSTALL_DIR}/docker-cleanup.sh"
+    fetch_latest
+    install_script "docker-cleanup.sh"
     log_success "Installed: ${INSTALL_DIR}/docker-cleanup.sh"
 
     # Create symlink
@@ -177,8 +220,8 @@ install_server_security() {
 
     # Download and run
     log_info "Downloading server-security.sh..."
-    curl -sSL -H 'Cache-Control: no-cache, no-store' "${REPO_URL}/server-security.sh" -o "${INSTALL_DIR}/server-security.sh"
-    chmod +x "${INSTALL_DIR}/server-security.sh"
+    fetch_latest
+    install_script "server-security.sh"
     log_success "Downloaded: ${INSTALL_DIR}/server-security.sh"
 
     echo ""
@@ -197,8 +240,8 @@ install_ssl_manager() {
 
     # Download script
     log_info "Downloading ssl-domain-manager.sh..."
-    curl -sSL -H 'Cache-Control: no-cache, no-store' "${REPO_URL}/ssl-domain-manager.sh" -o "${INSTALL_DIR}/ssl-domain-manager.sh"
-    chmod +x "${INSTALL_DIR}/ssl-domain-manager.sh"
+    fetch_latest
+    install_script "ssl-domain-manager.sh"
     log_success "Installed: ${INSTALL_DIR}/ssl-domain-manager.sh"
 
     # Create symlink
@@ -240,7 +283,9 @@ self_update() {
     echo ""
     log_info "Checking for updates..."
 
-    local REMOTE_VERSION=$(curl -sSL -H 'Cache-Control: no-cache, no-store' "${REPO_URL}/setup.sh" 2>/dev/null | grep '^VERSION=' | cut -d'"' -f2)
+    fetch_latest
+    local remote_setup="${FETCH_DIR}/${REPO_NAME}-${REPO_BRANCH}/setup.sh"
+    local REMOTE_VERSION=$(grep '^VERSION=' "$remote_setup" 2>/dev/null | cut -d'"' -f2)
 
     if [[ -z "$REMOTE_VERSION" ]]; then
         log_error "Could not check for updates"
@@ -254,8 +299,7 @@ self_update() {
 
         if [[ "$UPDATE" =~ ^[Yy]$ ]]; then
             log_info "Updating..."
-            curl -sSL -H 'Cache-Control: no-cache, no-store' "${REPO_URL}/setup.sh" -o "${INSTALL_DIR}/setup.sh"
-            chmod +x "${INSTALL_DIR}/setup.sh"
+            install_script "setup.sh"
             log_success "Updated! Restarting..."
             exec "${INSTALL_DIR}/setup.sh"
         fi
@@ -268,13 +312,14 @@ update_scripts() {
     echo ""
     log_info "Updating all installed scripts..."
 
+    fetch_latest
+
     local scripts=("docker-cleanup.sh" "server-security.sh" "ssl-domain-manager.sh" "setup.sh")
 
     for script in "${scripts[@]}"; do
         if [[ -f "${INSTALL_DIR}/${script}" ]]; then
             log_info "Updating ${script}..."
-            curl -sSL -H 'Cache-Control: no-cache, no-store' "${REPO_URL}/${script}" -o "${INSTALL_DIR}/${script}"
-            chmod +x "${INSTALL_DIR}/${script}"
+            install_script "${script}"
             log_success "${script} updated"
         fi
     done
@@ -310,10 +355,13 @@ main() {
     # Create install directory
     mkdir -p "$INSTALL_DIR"
 
+    # Cleanup temp dir on exit
+    trap cleanup_fetch EXIT
+
     # Save setup.sh itself
     if [[ ! -f "${INSTALL_DIR}/setup.sh" ]]; then
-        curl -sSL -H 'Cache-Control: no-cache, no-store' "${REPO_URL}/setup.sh" -o "${INSTALL_DIR}/setup.sh"
-        chmod +x "${INSTALL_DIR}/setup.sh"
+        fetch_latest
+        install_script "setup.sh"
         ln -sf "${INSTALL_DIR}/setup.sh" /usr/local/bin/server-scripts
         log_success "Installer saved. Run 'server-scripts' anytime."
     fi
