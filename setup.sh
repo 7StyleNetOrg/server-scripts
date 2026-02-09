@@ -132,7 +132,7 @@ EOF
 
     # Download script
     log_info "Downloading docker-cleanup.sh..."
-    curl -sSL "${REPO_URL}/docker-cleanup.sh" -o "${INSTALL_DIR}/docker-cleanup.sh"
+    curl -sSL -H 'Cache-Control: no-cache, no-store' "${REPO_URL}/docker-cleanup.sh" -o "${INSTALL_DIR}/docker-cleanup.sh"
     chmod +x "${INSTALL_DIR}/docker-cleanup.sh"
     log_success "Installed: ${INSTALL_DIR}/docker-cleanup.sh"
 
@@ -177,7 +177,7 @@ install_server_security() {
 
     # Download and run
     log_info "Downloading server-security.sh..."
-    curl -sSL "${REPO_URL}/server-security.sh" -o "${INSTALL_DIR}/server-security.sh"
+    curl -sSL -H 'Cache-Control: no-cache, no-store' "${REPO_URL}/server-security.sh" -o "${INSTALL_DIR}/server-security.sh"
     chmod +x "${INSTALL_DIR}/server-security.sh"
     log_success "Downloaded: ${INSTALL_DIR}/server-security.sh"
 
@@ -197,7 +197,7 @@ install_ssl_manager() {
 
     # Download script
     log_info "Downloading ssl-domain-manager.sh..."
-    curl -sSL "${REPO_URL}/ssl-domain-manager.sh" -o "${INSTALL_DIR}/ssl-domain-manager.sh"
+    curl -sSL -H 'Cache-Control: no-cache, no-store' "${REPO_URL}/ssl-domain-manager.sh" -o "${INSTALL_DIR}/ssl-domain-manager.sh"
     chmod +x "${INSTALL_DIR}/ssl-domain-manager.sh"
     log_success "Installed: ${INSTALL_DIR}/ssl-domain-manager.sh"
 
@@ -240,7 +240,7 @@ self_update() {
     echo ""
     log_info "Checking for updates..."
 
-    local REMOTE_VERSION=$(curl -sSL "${REPO_URL}/setup.sh" 2>/dev/null | grep '^VERSION=' | cut -d'"' -f2)
+    local REMOTE_VERSION=$(curl -sSL -H 'Cache-Control: no-cache, no-store' "${REPO_URL}/setup.sh" 2>/dev/null | grep '^VERSION=' | cut -d'"' -f2)
 
     if [[ -z "$REMOTE_VERSION" ]]; then
         log_error "Could not check for updates"
@@ -254,7 +254,7 @@ self_update() {
 
         if [[ "$UPDATE" =~ ^[Yy]$ ]]; then
             log_info "Updating..."
-            curl -sSL "${REPO_URL}/setup.sh" -o "${INSTALL_DIR}/setup.sh"
+            curl -sSL -H 'Cache-Control: no-cache, no-store' "${REPO_URL}/setup.sh" -o "${INSTALL_DIR}/setup.sh"
             chmod +x "${INSTALL_DIR}/setup.sh"
             log_success "Updated! Restarting..."
             exec "${INSTALL_DIR}/setup.sh"
@@ -273,7 +273,7 @@ update_scripts() {
     for script in "${scripts[@]}"; do
         if [[ -f "${INSTALL_DIR}/${script}" ]]; then
             log_info "Updating ${script}..."
-            curl -sSL "${REPO_URL}/${script}" -o "${INSTALL_DIR}/${script}"
+            curl -sSL -H 'Cache-Control: no-cache, no-store' "${REPO_URL}/${script}" -o "${INSTALL_DIR}/${script}"
             chmod +x "${INSTALL_DIR}/${script}"
             log_success "${script} updated"
         fi
@@ -312,7 +312,7 @@ main() {
 
     # Save setup.sh itself
     if [[ ! -f "${INSTALL_DIR}/setup.sh" ]]; then
-        curl -sSL "${REPO_URL}/setup.sh" -o "${INSTALL_DIR}/setup.sh"
+        curl -sSL -H 'Cache-Control: no-cache, no-store' "${REPO_URL}/setup.sh" -o "${INSTALL_DIR}/setup.sh"
         chmod +x "${INSTALL_DIR}/setup.sh"
         ln -sf "${INSTALL_DIR}/setup.sh" /usr/local/bin/server-scripts
         log_success "Installer saved. Run 'server-scripts' anytime."
