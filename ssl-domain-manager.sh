@@ -98,6 +98,33 @@ get_email() {
     fi
 }
 
+# Get proxy port from user
+get_proxy_port() {
+    echo ""
+    echo -e "${BLUE}Site type:${NC}"
+    echo "  1) Static site (serve files from /var/www/domain)"
+    echo "  2) Reverse Proxy (forward to a local port, e.g. Node.js, Docker)"
+    echo ""
+    ask "Choose [1/2] (default: 2): " SITE_TYPE
+    SITE_TYPE=${SITE_TYPE:-2}
+
+    if [[ "$SITE_TYPE" == "2" ]]; then
+        ask "Which port to proxy? (e.g. 3000, 8080): " PROXY_PORT
+        if [[ -z "$PROXY_PORT" ]]; then
+            log_error "Port is required for reverse proxy!"
+            exit 1
+        fi
+        if ! [[ "$PROXY_PORT" =~ ^[0-9]+$ ]] || [ "$PROXY_PORT" -lt 1 ] || [ "$PROXY_PORT" -gt 65535 ]; then
+            log_error "Invalid port number! (1-65535)"
+            exit 1
+        fi
+        log_success "Will proxy to localhost:${PROXY_PORT} (WebSocket enabled)"
+    else
+        PROXY_PORT=""
+        log_success "Will serve static files"
+    fi
+}
+
 # Create nginx configuration
 create_nginx_conf() {
     local domain=$1
@@ -118,11 +145,53 @@ create_nginx_conf() {
         log_warning "Overriding existing configuration..."
     fi
 
-    # Create web directory
-    if [ ! -d "$web_dir" ]; then
-        mkdir -p "$web_dir"
-        # Create default index.html
-        cat > "${web_dir}/index.html" << EOF
+    if [[ -n "$PROXY_PORT" ]]; then
+        # ── Reverse Proxy mode (WebSocket enabled) ──
+        cat > "$conf_file" << EOF
+server {
+    listen 80;
+    listen [::]:80;
+
+    server_name ${domain};
+
+    location / {
+        proxy_pass http://127.0.0.1:${PROXY_PORT};
+        proxy_http_version 1.1;
+
+        # WebSocket support
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Real IP forwarding
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+
+        # Buffering
+        proxy_buffering off;
+        proxy_cache off;
+    }
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+}
+EOF
+        log_success "Created reverse proxy config: ${conf_file} → localhost:${PROXY_PORT}"
+
+    else
+        # ── Static site mode ──
+        # Create web directory
+        if [ ! -d "$web_dir" ]; then
+            mkdir -p "$web_dir"
+            cat > "${web_dir}/index.html" << EOF
 <!DOCTYPE html>
 <html>
 <head>
@@ -134,12 +203,11 @@ create_nginx_conf() {
 </body>
 </html>
 EOF
-        chown -R www-data:www-data "$web_dir"
-        log_success "Created web directory: ${web_dir}"
-    fi
+            chown -R www-data:www-data "$web_dir"
+            log_success "Created web directory: ${web_dir}"
+        fi
 
-    # Create nginx config (HTTP only, certbot will add SSL)
-    cat > "$conf_file" << EOF
+        cat > "$conf_file" << EOF
 server {
     listen 80;
     listen [::]:80;
@@ -169,8 +237,8 @@ server {
     add_header X-XSS-Protection "1; mode=block" always;
 }
 EOF
-
-    log_success "Created nginx config: ${conf_file}"
+        log_success "Created static site config: ${conf_file}"
+    fi
 
     # Enable site
     if [ ! -L "$enabled_link" ]; then
@@ -248,7 +316,11 @@ print_summary() {
     echo -e "${GREEN}════════════════════════════════════════════════════════${NC}"
     echo ""
     echo -e "  ${BLUE}Nginx conf${NC}  : ${conf_file}"
-    echo -e "  ${BLUE}Web root${NC}    : ${web_dir}"
+    if [[ -n "$PROXY_PORT" ]]; then
+        echo -e "  ${BLUE}Proxy to${NC}    : localhost:${PROXY_PORT} (WebSocket enabled)"
+    else
+        echo -e "  ${BLUE}Web root${NC}    : ${web_dir}"
+    fi
 
     if [ -f "$cert_path" ]; then
         echo -e "  ${BLUE}SSL Cert${NC}    : ${cert_path}"
@@ -292,6 +364,9 @@ main() {
 
     # Get email
     get_email
+
+    # Get proxy port
+    get_proxy_port
 
     # Process each domain
     for domain in "$@"; do
